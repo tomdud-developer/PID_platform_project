@@ -1,7 +1,8 @@
 #include <Arduino.h>
-
 #include <ESP32Servo.h>
- 
+#include <string.h>
+#include <iostream>
+
 #define MAX_BUFF_LEN 255
 
 Servo servoX1;
@@ -10,8 +11,27 @@ Servo servoY1;
 Servo servoY2;
 
  
-int posX = 90; 
-int posY = 90; 
+float posX = 0; 
+float posY = 0; 
+float setpointX = 0.5;
+float setpointY = 0.5;
+float UX = 0;
+float UY = 0;
+float angleX = 90;
+float angleY = 90;
+float sumX = 0;
+float sumY = 0;
+float prevX = 0;
+float prevY = 0;
+
+float kp = 40;
+float ki = 50;
+float kd = -25;
+
+unsigned long loopTime = millis();
+const int FREQUENCY = 33.333;
+const unsigned long TIME = 1000 / FREQUENCY;
+float dt = 1.0 / FREQUENCY;
 
 int minAngle = 60;
 int maxAngle = 180 - minAngle ;
@@ -27,11 +47,13 @@ int cosVal = 0;
 int sinVal = 0;
 int X = 0;
 int Y = 0;
+float i = 0.0;
 
 char c;
 char str[MAX_BUFF_LEN];
 uint8_t idx = 0;
 
+void pid();
 
 void setup() {
 	ESP32PWM::allocateTimer(0);
@@ -47,77 +69,100 @@ void setup() {
   servoX2.attach(servoX2Pin, minUs, maxUs);
   servoY1.attach(servoY1Pin, minUs, maxUs);
   servoY2.attach(servoY2Pin, minUs, maxUs);
-  Serial.begin(115200);
+  Serial.begin(500000);
 }
 
  
 void loop() {
 
-  //Serial.write(Serial.read());
- // 
  while(Serial.available()>0){
    c = Serial.read();
    if(c != '\n'){
      str[idx++] = c;
    }
    else{
-     str[idx] = '\0';
-     idx = 0;
-     X = (str[0] - '0') * 100 + (str[1] - '0') + (str[2] - '0');
-     Y = (str[3] - '0') * 100 + (str[4] - '0') + (str[5] - '0');
-     Serial.write(str);
+      str[idx] = '\0';
+      idx = 0;
+      String s = str;
+      int pos = 7;
+      String subX = s.substring(0 , pos);
+      posX = subX.toFloat();
+      String subY = s.substring(pos + 1 , s.length());
+      posY = subY.toFloat();
+      Serial.printf("ESP: X:%f, Y:%f, sumX:%f\n", UX, UY, sumX);
+
+
+      cosVal = cos(i * 0.01745322535604579726333426417202);
+      sinVal = sin(i * 0.01745322535604579726333426417202);
+      i += dt / 80;
+      if(i >= 360.0) i = 0.0;
+
+      setpointX = 0.5 + cosVal / 2;
+      setpointY = 0.5 + sinVal / 2;
+
+      pid();
+
+      servoX2.write(90 - angleX);
+      servoY2.write(90 - angleY);
+
+      
    }
- }
-  servoY1.write(90);
-    servoY2.write(90);
-
-	/*	servoX1.write(90);
-    servoX2.write(90);
-    servoY1.write(90);
-    servoY2.write(90);*/
- /*
-	for (posX = minAngle; posX <= maxAngle; posX += 1) {
-		servoX1.write(posX);
-    servoX2.write(maxAngle-posX);
-    //servoY1.write(posX);
-   // servoY2.write(maxAngle-posX);
-		delay(10);       
-    printf("%d", posX);
-     Serial.println( posX);
-	}
-	for (posX = maxAngle; posX >= minAngle; posX -= 1) { 
-		servoX1.write(posX);
-    servoX2.write(maxAngle-posX);
-   // servoY1.write(posX);
-   // servoY2.write(maxAngle-posX);
-   Serial.println( posX);
-     printf("%d", posX);
-		delay(10);            
-	}*/
-
-/*
-  for (int i = 0; i <= 360; i += 1) {
-    cosVal = cos(i * 0.01745322535604579726333426417202) * (double)(maxAngle - minAngle) + (double)minAngle;
-    sinVal = sin(i * 0.01745322535604579726333426417202) * (double)(maxAngle - minAngle) + (double)minAngle;
-		servoX1.write(cosVal);
-    servoX2.write(maxAngle-cosVal);
-    servoY1.write(sinVal);
-    servoY2.write(maxAngle-sinVal);
-		delay(2);       
-     //Serial.printf( " cos(%d) = %lf", i, cos(i * 1000.0 / 57296.0));
-  }*/
-  if(X>322){
-    servoX1.write(90-30);
-    servoX2.write(90+30);
   }
-  else{
-    servoX2.write(90-30);
-    servoX1.write(90+30);
-  }
+  
+  
+  
+  /*
+  servoX2.write(90);
+  servoY2.write(90);
+  */
+
 }
 
-/*
-void rotateX(int angle){
-  posX
-  myservo.write(pos);
-}*/
+void pid(){
+  //Uchyb
+  float eX = setpointX - posX;
+  float eY = setpointY - posY;
+  
+  //Całka
+  sumX += eX * ki * dt;
+  sumY += eY * ki * dt;
+
+  if(sumX > 10){
+    sumX = 10;
+  }
+  else if( sumX < -10){
+    sumX = -10;
+  }
+  if(sumY > 10){
+    sumY = 10;
+  }
+  else if( sumY < -10){
+    sumY = -10;
+  }
+
+  //Sterowanie
+  UX = kp * eX + sumX + kd * (posX - prevX) / dt;
+  UY = kp * eY + sumY + kd * (posY - prevY) / dt;
+
+  angleX = UX;
+  angleY = UY;
+
+
+  //Ograniczenie sterowania
+  if(angleX > maxAngle - minAngle){
+    angleX = maxAngle - minAngle;
+  }
+  else if(angleX < -1*(maxAngle - minAngle)){
+    angleX = -1*(maxAngle - minAngle);
+  }
+  if(angleY > maxAngle - minAngle){
+    angleY = maxAngle - minAngle;
+  }
+  else if(angleY < -1*(maxAngle - minAngle)){
+    angleY = -1*(maxAngle - minAngle);
+  }
+
+
+  prevX = posX;
+  prevY = posY;
+}
