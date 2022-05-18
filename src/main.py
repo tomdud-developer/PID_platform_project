@@ -25,9 +25,6 @@ def open_USB_Connection(serialInst):
 def send_coordinates(xxx, yyy):
     str_comand = str(xxx) + str(yyy)
     write_ser(str_comand)
-    # while(serialInst.rea)
-    #packet = serialInst.read(6)
-    #print(packet.decode())
     print(str_comand)
     serialInst.flush()
 
