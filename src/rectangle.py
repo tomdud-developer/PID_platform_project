@@ -3,7 +3,11 @@ import numpy as np
 import serial.tools.list_ports
 import time
 
+
 #Declarations
+kp = 50
+ki = 0; 
+kd = -100
 xp = 0;
 yp = 0;
 wp = 1;
@@ -14,19 +18,12 @@ wb = 1;
 hb = 0;
 last_time = 0;
 #For detecting platform color
-lower = np.array([200 / 2, 0.25 * 255, 0.4 * 255])   #[205 / 2, 0.33 * 255, 0.45 * 255]
-upper = np.array([235 / 2, 0.60 * 255, 0.95 * 255])   #[215 / 2, 0.54 * 255, 0.98 * 255]
+lower = np.array([218 / 2, 0.25 * 255, 0.4 * 255])   #[205 / 2, 0.33 * 255, 0.45 * 255]
+upper = np.array([228 / 2, 0.75 * 255, 1 * 255])   #[215 / 2, 0.54 * 255, 0.98 * 255]
 
 def write_ser(serialInst, cmd):
     cmd = cmd + '\n'
     serialInst.write(cmd.encode())
-
-"""
-def read_ser(serialInst):
-    string = serialInst.readline()
-	#string = serialInst.read(22)
-	#print(string.decode('utf-8'))
-"""
 
 def open_USB_Connection(serialInst):
     ports = serial.tools.list_ports.comports()
@@ -56,6 +53,7 @@ serialInst.flush()
 video = cv2.VideoCapture(1)
 
 while True:
+    
     while(time.time() - last_time < 0.03):
         continue
     last_time = time.time()
@@ -81,12 +79,12 @@ while True:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5,5), 0)
     #Finding bright object (ball)
-    _, mask_circ = cv2.threshold(gray, 170, 255, cv2.THRESH_BINARY)
+    _, mask_circ = cv2.threshold(gray, 195, 255, cv2.THRESH_BINARY)
     contours, hierarchy = cv2.findContours(mask_circ, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     if contours is not None:
        for contour in contours:
             #Finding object of correct size
-            if cv2.contourArea(contour) >= 50 and cv2.contourArea(contour) < 500:
+            if cv2.contourArea(contour) >= 50 and cv2.contourArea(contour) < 4000:
                 epsilon = 0.01*cv2.arcLength(contour, False)
                 approx = cv2.approxPolyDP(contour, epsilon, False)
                 xb, yb, wb, hb = cv2.boundingRect(contour)
@@ -111,9 +109,16 @@ while True:
         print(packet)
     
     cv2.imshow("cam", img)
-    #cv2.imshow("mask", mask)
-    #cv2.imshow("gray", gray)
-    #cv2.imshow("mask circ", mask_circ)
+    cv2.imshow("mask", mask)
+    cv2.imshow("gray", gray)
+    cv2.imshow("mask circ", mask_circ)
     
     #print(time.time() - last_time)
-    cv2.waitKey(1)
+    #cv2.waitKey(1)
+    key = cv2.waitKey(1)
+    if key == ord('p'):
+        kp = input("new kp = ")
+    elif key == ord('i'):
+        ki = input("new ki = ")
+    elif key == ord('d'):
+        kd = input("new kd = ")
