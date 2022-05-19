@@ -20,7 +20,7 @@ float UY = 0;
 
 float filtered_e_X = 0;
 float filtered_e_Y = 0;
-const int deriv_filter_N = 2;
+const int deriv_filter_N = 5;
 float e_X_total = 0;
 float e_Y_total = 0;
 float e_X_buf[deriv_filter_N];
@@ -69,6 +69,7 @@ void pid();
 float moving_average_X(float newValue);
 float moving_average_Y(float newValue);
 void circural_move(float multiplier);
+float* get_values(String str, int num);
 
 void setup() {
 	ESP32PWM::allocateTimer(0);
@@ -104,17 +105,22 @@ void loop() {
    else{
       str[idx] = '\0';
       idx = 0;
+      
       String s = str;
+      /*
       int pos = 7;
       String subX = s.substring(0 , pos);
       posX = subX.toFloat();
       String subY = s.substring(pos + 1 , s.length());
-      posY = subY.toFloat();
-      Serial.printf("ESP: X:%f, Y:%f, sumX:%f, sin:%f\n", UX, UY, sumX, sinVal);
-
-
-  
+      posY = subY.toFloat();*/
       
+      float* values = get_values(s, 5);
+      posX = values[0];
+      posY = values[1];
+      kp = values[2];
+      ki = values[3];
+      kd = values[4];
+      Serial.printf("ESP: X:%f, Y:%f, sumX:%f, sin:%f, posX:%f, posY:%f, kp:%f, ki:%f, kd:%f\n", UX, UY, sumX, sinVal, posX, posY, kp, ki, kd);
 
       pid();
       circural_move(40);
@@ -136,6 +142,23 @@ void loop() {
 
 }
 
+float* get_values(String str, int num){
+  float* values = new float[num];
+  int q = 0;
+  for(int i = 0; i < num; i++){
+    int p = 0;
+    String sub = "00000000";
+    while(q < str.length() && str[q] != ','){
+      sub[p] = str[q];
+      q++;
+      p++;
+    }
+    q++;
+    values[i] = sub.toFloat();
+  }
+
+  return values;
+}
 
 
 void pid(){

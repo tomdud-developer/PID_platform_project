@@ -5,7 +5,7 @@ import time
 
 
 #Declarations
-kp = 50
+kp = 59
 ki = 0; 
 kd = -100
 xp = 0;
@@ -39,7 +39,7 @@ def open_USB_Connection(serialInst):
 
 def send_coordinates(serialInst, xxx, yyy):
     #str_command = str(xxx) + "," + str(yyy)
-    str_command = ("%.5f,%.5f" % (xxx, yyy))
+    str_command = ("%.5f,%.5f,%.1f,%.1f,%.1f" % (xxx, yyy, kp, ki, kd))
     write_ser(serialInst, str_command)
     
     #print(str_command)
@@ -117,8 +117,8 @@ while True:
     #cv2.waitKey(1)
     key = cv2.waitKey(1)
     if key == ord('p'):
-        kp = input("new kp = ")
+        kp = float(input("new kp = "))
     elif key == ord('i'):
-        ki = input("new ki = ")
+        ki = float(input("new ki = "))
     elif key == ord('d'):
-        kd = input("new kd = ")
+        kd = float(input("new kd = "))
