@@ -17,10 +17,12 @@ float setpointX = 0.5;
 float setpointY = 0.5;
 float UX = 0;
 float UY = 0;
+const int num = 7;
+float* values = new float[num];
 
 float filtered_e_X = 0;
 float filtered_e_Y = 0;
-const int deriv_filter_N = 5;
+const int deriv_filter_N = 3;
 float e_X_total = 0;
 float e_Y_total = 0;
 float e_X_buf[deriv_filter_N];
@@ -36,10 +38,12 @@ float prevX = 0;
 float prevY = 0;
 
 //***************************     PID parameters regulation   *****************************
-float kp = 50; //50
+float kp = 40; //50
 float ki = 0; // 50
-float kd = -100;
+float kd = -25;
 
+float circural_move_multiplier = -1;
+float eight_move_multiplier = -1;
 unsigned long loopTime = millis();
 const int FREQUENCY = 33.333;
 const unsigned long TIME = 1000 / FREQUENCY;
@@ -57,9 +61,11 @@ int minUs = 1000;
 int maxUs = 2000;
 float cosVal = 0;
 float sinVal = 0;
+float cosVal2 = 0;
 int X = 0;
 int Y = 0;
 float i = 0.0;
+bool cycle = false;
 
 char c;
 char str[MAX_BUFF_LEN];
@@ -69,7 +75,8 @@ void pid();
 float moving_average_X(float newValue);
 float moving_average_Y(float newValue);
 void circural_move(float multiplier);
-float* get_values(String str, int num);
+void figure8_move(float multiplier);
+void get_values(String str);
 
 void setup() {
 	ESP32PWM::allocateTimer(0);
@@ -107,29 +114,26 @@ void loop() {
       idx = 0;
       
       String s = str;
-      /*
-      int pos = 7;
-      String subX = s.substring(0 , pos);
-      posX = subX.toFloat();
-      String subY = s.substring(pos + 1 , s.length());
-      posY = subY.toFloat();*/
-      
-      float* values = get_values(s, 5);
+      get_values(s);
       posX = values[0];
       posY = values[1];
       kp = values[2];
       ki = values[3];
       kd = values[4];
-      Serial.printf("ESP: X:%f, Y:%f, sumX:%f, sin:%f, posX:%f, posY:%f, kp:%f, ki:%f, kd:%f\n", UX, UY, sumX, sinVal, posX, posY, kp, ki, kd);
+      circural_move_multiplier = values[5];
+      eight_move_multiplier = values[6];
+      //Serial.printf("ESP: X:%f, Y:%f, sumX:%f, sin:%f, posX:%f, posY:%f, kp:%f, ki:%f, kd:%f, cm:%f\n", UX, UY, sumX, sinVal, posX, posY, kp, ki, kd, circural_move_multiplier);
+      Serial.printf("ESP: X:%.2f, Y:%.2f\n", UX, UY);
 
       pid();
-      circural_move(40);
-
+      setpointX = 0.5;
+      setpointY = 0.5;
+      circural_move(circural_move_multiplier);
+      figure8_move(eight_move_multiplier);
+      
       servoX1.write(90 + angleX);
       servoX2.write(90 - angleX);
       servoY2.write(90 - angleY);
-
-      
    }
   }
   
@@ -142,8 +146,7 @@ void loop() {
 
 }
 
-float* get_values(String str, int num){
-  float* values = new float[num];
+void get_values(String str){
   int q = 0;
   for(int i = 0; i < num; i++){
     int p = 0;
@@ -156,8 +159,6 @@ float* get_values(String str, int num){
     q++;
     values[i] = sub.toFloat();
   }
-
-  return values;
 }
 
 
@@ -170,17 +171,18 @@ void pid(){
   sumX += eX * ki * dt;
   sumY += eY * ki * dt;
 
-  if(sumX > 10){
-    sumX = 10;
+  int i_limit = 2;
+  if(sumX > i_limit){
+    sumX = i_limit;
   }
-  else if( sumX < -10){
-    sumX = -10;
+  else if( sumX < -1 * i_limit){
+    sumX = -1 * i_limit;
   }
-  if(sumY > 10){
-    sumY = 10;
+  if(sumY > i_limit){
+    sumY = i_limit;
   }
-  else if( sumY < -10){
-    sumY = -10;
+  else if( sumY < -1 * i_limit){
+    sumY = -1 * i_limit;
   }
 
   //Sterowanie
@@ -236,11 +238,37 @@ float moving_average_Y(float newValue){
 }
 
 void circural_move(float multiplier){
-  cosVal = cos(i * 0.01745322535604579726333426417202);
-  sinVal = sin(i * 0.01745322535604579726333426417202);
-  i += dt * multiplier;
-  if(i >= 360.0) 
-    i = 0.0;
-  setpointX = 0.5 + cosVal / 4;
-  setpointY = 0.5 + sinVal / 4;
+  if(multiplier > 0.0){
+    cosVal = cos(i * 0.01745322535604579726333426417202);
+    sinVal = sin(i * 0.01745322535604579726333426417202);
+    i += dt * multiplier;
+    if(i >= 360.0) 
+      i = 0.0;
+    setpointX = 0.5 + cosVal / 4;
+    setpointY = 0.5 + sinVal / 4;
+  }
+}
+
+void figure8_move(float multiplier){
+  if(multiplier > 0.0){
+    cosVal = cos(i * 0.01745322535604579726333426417202);
+    sinVal = sin(i * 0.01745322535604579726333426417202);
+
+    cosVal2 = cos(i * 0.01745322535604579726333426417202 + 3.14);
+    i += dt * multiplier;
+    if(i >= 360.0){ 
+        i = 0.0;
+        cycle = !cycle;
+    }
+
+    if(cycle == 0){
+      setpointX = 0.7 + cosVal2 / 6;
+      setpointY = 0.5 + sinVal / 6;
+    }
+    else{
+      setpointX = 0.3 + cosVal / 6;
+      setpointY = 0.5 + sinVal / 6;
+    }
+
+  }
 }
