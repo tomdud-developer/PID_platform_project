@@ -10,7 +10,6 @@ Servo servoX2;
 Servo servoY1;
 Servo servoY2;
 
- 
 float posX = 0; 
 float posY = 0; 
 float setpointX = 0.5;
@@ -103,7 +102,6 @@ void setup() {
 
  
 void loop() {
-
  while(Serial.available()>0){
    c = Serial.read();
    if(c != '\n'){
@@ -122,7 +120,6 @@ void loop() {
       kd = values[4];
       circural_move_multiplier = values[5];
       eight_move_multiplier = values[6];
-      //Serial.printf("ESP: X:%f, Y:%f, sumX:%f, sin:%f, posX:%f, posY:%f, kp:%f, ki:%f, kd:%f, cm:%f\n", UX, UY, sumX, sinVal, posX, posY, kp, ki, kd, circural_move_multiplier);
       Serial.printf("ESP: X:%.2f, Y:%.2f\n", UX, UY);
 
       pid();
@@ -136,14 +133,6 @@ void loop() {
       servoY2.write(90 - angleY);
    }
   }
-  
-  
-  /*
-  servoX1.write(90);
-  servoX2.write(90);
-  servoY2.write(90);
-  */
-
 }
 
 void get_values(String str){
@@ -195,7 +184,6 @@ void pid(){
   angleX = UX;
   angleY = UY;
 
-
   //Ograniczenie sterowania
   if(angleX > maxAngle - minAngle){
     angleX = maxAngle - minAngle;
@@ -209,7 +197,6 @@ void pid(){
   else if(angleY < -1*(maxAngle - minAngle)){
     angleY = -1*(maxAngle - minAngle);
   }
-
 
   prevX = posX;
   prevY = posY;
@@ -248,6 +235,7 @@ void circural_move(float multiplier){
     setpointY = 0.5 + sinVal / 4;
   }
 }
+
 
 void figure8_move(float multiplier){
   if(multiplier > 0.0){
